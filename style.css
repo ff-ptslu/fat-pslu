@@ -1,0 +1,191 @@
+/* FAT — style.css
+   Warna diambil dari lambang perusahaan: ungu #4D00CA sampai #9200BB. */
+:root{
+  --brand:#5B00C7; --brand-700:#3D0099; --brand-50:#F4ECFD; --brand-100:#E7D9FB;
+  --grad:linear-gradient(135deg,#4D00CA 0%,#9200BB 100%);
+  --amber:#E29A2D; --amber-50:#FDF4E3; --amber-700:#96620E;
+  --green:#17876D; --green-50:#E6F4F0; --green-700:#0E5A48;
+  --red:#B3261E; --red-50:#FBECEB; --red-700:#8C1D18;
+  --ink:#101828; --muted:#667085; --faint:#98A2B3;
+  --line:#E4E7EC; --bg:#EEF0F4; --card:#FFF;
+  --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+/* Atribut hidden harus mengalahkan display dari kelas apa pun. */
+[hidden]{display:none!important}
+body{
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);
+  color:var(--ink);-webkit-font-smoothing:antialiased;
+  display:flex;justify-content:center;min-height:100vh;
+}
+.mono{font-family:'IBM Plex Mono',monospace}
+.app{
+  width:100%;max-width:440px;background:var(--card);min-height:100vh;
+  display:flex;flex-direction:column;box-shadow:0 0 0 1px var(--line);
+}
+
+/* ── Chrome ─────────────────────────────── */
+.topbar{background:var(--grad);color:#fff;padding:11px 14px 13px;position:sticky;top:0;z-index:20}
+.topbar .row{display:flex;align-items:center;gap:10px}
+.topbar h1{font-size:15.5px;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+.topbar .sub{font-size:11.5px;opacity:.78;margin-top:2px}
+.topbar .judul{min-width:0;flex:1}
+.merek{background:#fff;border-radius:9px;padding:5px;flex-shrink:0;display:grid;
+  place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.logo{width:22px;height:21px;display:block}
+.avatar{
+  background:rgba(255,255,255,.2);border:0;color:#fff;width:30px;height:30px;border-radius:50%;
+  cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:700;flex-shrink:0;
+  display:grid;place-items:center;letter-spacing:.02em;
+}
+.avatar:active{background:rgba(255,255,255,.34)}
+.ikon{
+  background:rgba(255,255,255,.16);border:0;color:#fff;width:30px;height:30px;
+  border-radius:8px;cursor:pointer;font-size:15px;line-height:1;flex-shrink:0;
+  font-family:inherit;display:grid;place-items:center;
+}
+.ikon:active{background:rgba(255,255,255,.3)}
+.back{font-size:20px;padding-bottom:3px}
+main{flex:1;padding:16px 16px 92px;overflow-x:hidden}
+
+.tabs{
+  position:fixed;bottom:0;width:100%;max-width:440px;background:#fff;
+  border-top:1px solid var(--line);display:grid;padding:8px 0 10px;z-index:20;
+}
+.tabs button{
+  background:none;border:0;font-family:inherit;font-size:10.5px;font-weight:600;
+  color:var(--faint);cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;gap:4px;padding:2px;position:relative;
+}
+.tabs button .ic{font-size:16px;line-height:1}
+.tabs button.on{color:var(--brand)}
+.tabs .badge{
+  position:absolute;top:-2px;right:calc(50% - 20px);background:var(--amber);color:#fff;
+  font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;
+  display:grid;place-items:center;padding:0 4px;
+}
+
+/* ── Blok ───────────────────────────────── */
+.card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.card.tap{cursor:pointer;transition:border-color .12s,transform .12s}
+.card.tap:active{transform:scale(.995);border-color:var(--brand)}
+.sec{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--faint);margin:20px 2px 9px}
+.sec:first-child{margin-top:2px}
+.rowb{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.ttl{font-size:14.5px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+.sm{font-size:12px;color:var(--muted);line-height:1.5}
+.xs{font-size:11px;color:var(--faint);line-height:1.5}
+.id{font-size:10.5px;color:var(--faint);letter-spacing:-.02em}
+.amt{font-family:'IBM Plex Mono',monospace;font-weight:600;letter-spacing:-.03em}
+.hr{height:1px;background:var(--line);margin:12px -14px}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;padding:6px 0}
+.kv span:first-child{color:var(--muted)}
+.kv span:last-child{font-weight:600;text-align:right}
+
+/* ── Pil status ─────────────────────────── */
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;
+  padding:3px 8px;border-radius:20px;white-space:nowrap}
+.p-draft{background:#F2F4F7;color:#475467}
+.p-wait{background:var(--amber-50);color:var(--amber-700)}
+.p-ok{background:var(--green-50);color:var(--green-700)}
+.p-no{background:var(--red-50);color:var(--red-700)}
+.p-info{background:var(--brand-50);color:var(--brand-700)}
+
+/* ── Meteran pagu ───────────────────────── */
+.meter{height:7px;border-radius:4px;background:#EDF0F4;overflow:hidden;display:flex;
+  margin:9px 0 7px;border:1px solid var(--line)}
+.meter i{display:block;height:100%}
+.meter .used{background:var(--brand)}
+.meter .cmt{background:repeating-linear-gradient(45deg,var(--amber),var(--amber) 2px,#F6D9A6 2px,#F6D9A6 5px)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:10.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.dotc{width:8px;height:8px;border-radius:2px;display:inline-block}
+
+/* ── Rail persetujuan ───────────────────── */
+.rail{list-style:none}
+.rail li{display:flex;gap:12px;padding-bottom:16px;position:relative}
+.rail li:last-child{padding-bottom:0}
+.rail li::before{content:'';position:absolute;left:9px;top:20px;bottom:0;width:0;
+  border-left:2px dotted var(--line)}
+.rail li:last-child::before{display:none}
+.rail .st{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
+  font-size:10px;font-weight:700;background:#fff;border:2px solid var(--line);color:var(--faint);z-index:1}
+.rail .done .st{background:var(--green);border-color:var(--green);color:#fff}
+.rail .now .st{background:var(--amber);border-color:var(--amber);color:#fff}
+.rail .no .st{background:var(--red);border-color:var(--red);color:#fff}
+.rail b{font-size:13px;font-weight:600;display:block}
+.rail .wait b{color:var(--faint)}
+.rail .who{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.5;display:block}
+.rail .note{font-size:11.5px;color:var(--amber-700);background:var(--amber-50);
+  padding:6px 9px;border-radius:7px;margin-top:6px;line-height:1.45}
+
+/* ── Formulir ───────────────────────────── */
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12px;font-weight:600;margin-bottom:5px}
+.field .hint{font-size:11px;color:var(--faint);font-weight:400}
+input,select,textarea{width:100%;font-family:inherit;font-size:14px;padding:11px 12px;
+  border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--brand-50);border-color:var(--brand)}
+input.mono{font-family:'IBM Plex Mono',monospace;font-weight:600}
+.btn{width:100%;font-family:inherit;font-size:14px;font-weight:600;padding:13px;
+  border-radius:10px;border:0;cursor:pointer;background:var(--brand);color:#fff}
+.btn:disabled{background:#CDD5E0;cursor:not-allowed}
+.btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.btn.ok{background:var(--green)}
+.btn.no{background:#fff;border:1px solid var(--red);color:var(--red)}
+.btnrow{display:flex;gap:8px;margin-top:10px}
+.steps{display:flex;gap:6px;margin-bottom:16px}
+.steps i{flex:1;height:3px;border-radius:2px;background:var(--line)}
+.steps i.on{background:var(--brand)}
+.chips{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 6px;padding:0 16px 10px}
+.chips::-webkit-scrollbar{display:none}
+.chip{font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;
+  border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+.alert{font-size:12px;padding:10px 12px;border-radius:9px;line-height:1.5;margin-bottom:12px}
+.a-warn{background:var(--amber-50);color:var(--amber-700)}
+.a-info{background:var(--brand-50);color:var(--brand-700)}
+.a-bad{background:var(--red-50);color:var(--red-700)}
+
+.empty{text-align:center;padding:44px 20px;color:var(--faint)}
+.empty .big{font-size:30px;margin-bottom:10px}
+
+/* ── Memuat ─────────────────────────────── */
+.loading{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
+.galat{border:1px solid var(--red-50);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.galat .kepala{background:var(--red-50);color:var(--red-700);padding:12px 14px;
+  font-size:13px;font-weight:600;line-height:1.45}
+.galat .isi{padding:12px 14px;font-size:11.5px;color:var(--muted);line-height:1.6}
+.spin{width:26px;height:26px;margin:0 auto 14px;border:3px solid var(--line);
+  border-top-color:var(--brand);border-radius:50%;animation:putar .7s linear infinite}
+@keyframes putar{to{transform:rotate(360deg)}}
+.skeleton{height:76px;border-radius:var(--r);margin-bottom:10px;
+  background:linear-gradient(90deg,#F2F4F7 25%,#E9ECF2 50%,#F2F4F7 75%);
+  background-size:200% 100%;animation:geser 1.2s infinite}
+@keyframes geser{to{background-position:-200% 0}}
+
+#toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:var(--ink);color:#fff;font-size:12.5px;font-weight:500;padding:11px 16px;
+  border-radius:9px;max-width:340px;text-align:center;line-height:1.45}
+.toast.bad{background:var(--red)}
+.toast.good{background:var(--green)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ── Layar masuk ────────────────────────── */
+.masuk{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:32px 24px;text-align:center;
+}
+.masuk .merek-besar{
+  width:76px;height:76px;border-radius:18px;background:#fff;display:grid;place-items:center;
+  box-shadow:0 2px 12px rgba(77,0,202,.18);margin-bottom:22px;
+}
+.masuk .merek-besar img{width:52px;height:auto;display:block}
+.masuk h2{font-size:19px;font-weight:600;letter-spacing:-.01em;margin-bottom:6px}
+.masuk .ket{font-size:13px;color:var(--muted);line-height:1.6;max-width:280px;margin-bottom:26px}
+.masuk .gbox{min-height:44px;display:grid;place-items:center}
+.masuk .kaki{font-size:11px;color:var(--faint);margin-top:28px;line-height:1.6;max-width:280px}

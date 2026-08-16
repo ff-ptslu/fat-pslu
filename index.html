@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5B00C7">
+<title>FAT — PT Sahada Laku Utama</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar" id="topbar" hidden>
+    <div class="row">
+      <button class="ikon back" id="back" onclick="kembali()" hidden>&lsaquo;</button>
+      <div class="merek"><img class="logo" src="logo.png" alt="PT Sahada Laku Utama"></div>
+      <div class="judul">
+        <h1 id="ttl">Memuat</h1>
+        <div class="sub" id="sub">&nbsp;</div>
+      </div>
+      <button class="avatar" id="btnProfil" onclick="buka('profil')" title="Profil" hidden></button>
+    </div>
+  </header>
+
+  <main id="view">
+    <div class="loading"><div class="spin"></div><p>Menyiapkan aplikasi…</p></div>
+  </main>
+
+  <nav class="tabs" id="tabs" hidden></nav>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="app.js"></script>
+</body>
+</html>
