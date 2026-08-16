@@ -19,7 +19,7 @@ var KONFIG = {
    * setiap kali app.js diubah. Nilainya tampil di layar Profil, sehingga
    * bisa dipastikan browser memuat versi terbaru dan bukan salinan cache.
    */
-  BUILD: '2026-08-17.3'
+  BUILD: '2026-08-17.5'
 };
 
 var S = { boot: null, tab: 'home', layar: 'home', p: {}, stack: [], form: {},
@@ -764,22 +764,26 @@ var LAYAR = {
   pgjitem: function () {
     return api('getRab', { rab_id: S.p.id }).then(function (r) {
       var hariIni = new Date().toISOString().slice(0, 10);
+
+      // Daftar item disimpan di state, dan tombol hanya membawa indeksnya.
+      // Menyisipkan JSON ke dalam atribut onclick tampak praktis tetapi
+      // rusak begitu isinya mengandung tanda kutip.
+      S.p.items = r.items;
+      S.p.noRab = r.header.no_rab;
+
       return '<div class="card" style="background:var(--brand-50);border-color:var(--brand-50)">' +
         '<div class="ttl">' + esc(r.header.judul) + '</div>' +
         '<div class="id mono" style="margin-top:3px">' + esc(r.header.no_rab) + '</div>' +
         '<div class="xs" style="margin-top:5px">' + esc(namaDivisi(r.header.divisi_id)) +
         ' &middot; ' + esc(r.header.periode) + '</div></div>' +
         '<div class="sec">Item yang tersedia</div>' +
-        r.items.map(function (i) {
+        r.items.map(function (i, idx) {
           var lewat = i.valid_sampai && i.valid_sampai < hariIni;
           var off = i.sisa <= 0 || lewat || i.status_item === 'EXPIRED' || i.status_item === 'CLOSED';
           var alasan = i.sisa <= 0 ? 'Pagu habis'
             : lewat ? 'Masa berlaku sudah lewat' : 'Item sudah ditutup';
-          return '<div class="pick ' + (off ? 'off' : '') + '" onclick="' +
-            (off ? '' : 'pilihItem(' + JSON.stringify(JSON.stringify({
-              item_id: i.item_id, nama: i.deskripsi, sisa: i.sisa, coa_id: i.coa_id,
-              rab: r.header.no_rab, sampai: i.valid_sampai, pola: i.pola_realisasi
-            })).slice(1, -1).replace(/"/g, '&quot;') + ')') + '">' +
+          return '<div class="pick ' + (off ? 'off' : '') + '"' +
+            (off ? '' : ' onclick="pilihItem(' + idx + ')"') + '>' +
             '<div class="rowb"><div style="min-width:0">' +
             '<div style="font-weight:600;font-size:13.5px">' + esc(i.deskripsi) + '</div>' +
             '<div class="id mono" style="margin-top:3px">' + esc(i.item_id) + '</div>' +
@@ -1412,11 +1416,19 @@ function cekNominal() {
 
 /* ── Alur pengajuan ──────────────────────────────────────── */
 
-function pilihItem(json) {
-  var i = JSON.parse(json);
+/**
+ * Memilih item anggaran yang akan dibebani.
+ * Menerima indeks pada daftar yang sedang ditampilkan, bukan datanya,
+ * agar tidak ada data yang perlu diselipkan ke dalam atribut HTML.
+ */
+function pilihItem(idx) {
+  var daftar = S.p.items || [];
+  var i = daftar[idx];
+  if (!i) return toast('Item tidak ditemukan, coba muat ulang halaman.', 'bad');
+
   S.form = {
-    item_id: i.item_id, nama: i.nama, sisa: i.sisa, coa_id: i.coa_id,
-    pola: i.pola, tanggal_permohonan: hariIni_(),
+    item_id: i.item_id, nama: i.deskripsi, sisa: i.sisa, coa_id: i.coa_id,
+    pola: i.pola_realisasi, tanggal_permohonan: hariIni_(),
     skema_ppn: 'NON_PPN', tipe_pengajuan: 'NON_KASBON',
     info_penerima: 'PERUSAHAAN', tipe_pembayaran_nama: 'TRANSFER BANK'
   };
