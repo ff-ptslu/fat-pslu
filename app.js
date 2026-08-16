@@ -17,11 +17,62 @@ var KONFIG = {
 
 var S = { boot: null, tab: 'home', layar: 'home', p: {}, stack: [], form: {},
           sibuk: false, token: null, masuk: false };
-
+ 
 var IDLE = { timer: null, terakhir: Date.now() };
-
+ 
+/* ── Penyimpanan token ───────────────────────────────────── */
+ 
+/**
+ * Token disimpan di sessionStorage, bukan localStorage.
+ *
+ * sessionStorage hidup selama tab terbuka dan hilang saat tab ditutup.
+ * Itu titik tengah yang masuk akal: memuat ulang halaman tidak memaksa
+ * login lagi, tetapi menutup tab benar-benar mengakhiri sesi. localStorage
+ * akan membuat token bertahan berhari-hari di perangkat bersama.
+ *
+ * ID token Google berlaku satu jam. Setelah itu server menolaknya dan
+ * aplikasi meminta masuk lagi.
+ */
+var KUNCI_TOKEN = 'fat_token';
+ 
+function simpanToken_(token) {
+  S.token = token;
+  try { sessionStorage.setItem(KUNCI_TOKEN, token); } catch (e) { /* mode privat */ }
+}
+ 
+function hapusToken_() {
+  S.token = null;
+  try { sessionStorage.removeItem(KUNCI_TOKEN); } catch (e) { }
+}
+ 
+/** Membaca bagian exp dari JWT tanpa memvalidasi tanda tangannya. */
+function kedaluwarsaToken_(token) {
+  try {
+    var isi = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return Number(JSON.parse(atob(isi)).exp) * 1000;
+  } catch (e) {
+    return 0;
+  }
+}
+ 
+/**
+ * Mengambil token tersimpan bila masih cukup lama berlaku.
+ * Sisa di bawah satu menit dianggap habis, agar permintaan tidak
+ * ditolak di tengah jalan.
+ */
+function tokenTersimpan_() {
+  var t;
+  try { t = sessionStorage.getItem(KUNCI_TOKEN); } catch (e) { return null; }
+  if (!t) return null;
+  if (kedaluwarsaToken_(t) < Date.now() + 60000) {
+    hapusToken_();
+    return null;
+  }
+  return t;
+}
+ 
 /* ── Komunikasi dengan server ────────────────────────────── */
-
+ 
 /**
  * Memanggil satu aksi di Apps Script.
  *
@@ -55,7 +106,7 @@ function api(aksi, payload) {
       throw { kode: 'GAGAL_TERHUBUNG', fungsi: aksi, asli: String(e && e.message ? e.message : e) };
     });
 }
-
+ 
 var PESAN = {
   BELUM_DISETUP: 'Sistem belum disiapkan. Hubungi administrator.',
   SESI_HABIS: 'Sesi berakhir. Muat ulang halaman untuk masuk lagi.',
@@ -92,12 +143,12 @@ var PESAN = {
   GAGAL_TERHUBUNG: 'Gagal terhubung ke server. Periksa koneksi Anda.',
   KESALAHAN_SISTEM: 'Terjadi kesalahan sistem. Sudah dicatat untuk diperiksa.'
 };
-
+ 
 function inisial(nama) {
   var bagian = String(nama || '?').trim().split(/\s+/);
   return (bagian[0][0] + (bagian[1] ? bagian[1][0] : '')).toUpperCase();
 }
-
+ 
 function kartuGalat(e) {
   var rinci = [];
   if (e.kode) rinci.push('Kode: ' + esc(e.kode));
@@ -121,7 +172,7 @@ function kartuGalat(e) {
     '<div class="btnrow" style="margin-top:0"><button class="btn ghost" onclick="periksaAkses()">' +
     'Periksa akses berkas</button></div><div id="hasilAkses"></div>';
 }
-
+ 
 /**
  * Menampilkan hak baca dan tulis pengguna pada ketiga berkas data.
  * Ini yang membedakan "belum dibagikan" dari kesalahan kode.
@@ -130,7 +181,7 @@ function periksaAkses() {
   var box = document.getElementById('hasilAkses');
   if (!box) return;
   box.innerHTML = '<div class="card"><div class="sm">Memeriksa…</div></div>';
-
+ 
   api('cekAkses').then(function (d) {
     var baris = d.berkas.map(function (b) {
       var beres = b.hak_dibutuhkan === 'Pelihat' ? b.baca : (b.baca && b.tulis);
@@ -145,11 +196,11 @@ function periksaAkses() {
         '<span class="pill ' + (beres ? 'p-ok' : 'p-no') + '">' +
         (beres ? 'siap' : 'kurang') + '</span></div>';
     }).join('<div class="hr"></div>');
-
+ 
     var kurang = d.berkas.filter(function (b) {
       return b.hak_dibutuhkan === 'Pelihat' ? !b.baca : !(b.baca && b.tulis);
     });
-
+ 
     box.innerHTML = '<div class="card"><div class="xs" style="margin-bottom:6px">Masuk sebagai ' +
       esc(d.email) + '</div>' + baris + '</div>' +
       (kurang.length
@@ -167,14 +218,14 @@ function periksaAkses() {
     box.innerHTML = '<div class="alert a-bad">Pemeriksaan gagal: ' + esc(pesanError(e)) + '</div>';
   });
 }
-
+ 
 function pesanError(e) {
   if (!e) return 'Terjadi kesalahan.';
   return PESAN[e.kode] || e.pesan || ('Kesalahan: ' + e.kode);
 }
-
+ 
 /* ── Utilitas tampilan ───────────────────────────────────── */
-
+ 
 function rp(n) { return 'Rp' + (Number(n) || 0).toLocaleString('id-ID'); }
 function rpk(n) {
   n = Number(n) || 0;
@@ -202,7 +253,7 @@ function toast(teks, jenis) {
   document.getElementById('toast').appendChild(t);
   setTimeout(function () { t.remove(); }, 3200);
 }
-
+ 
 function pilKe(status, menunggu) {
   var peta = {
     DRAFT: ['p-draft', 'Draft'], REVISI: ['p-no', 'Perlu revisi'], REJECTED: ['p-no', 'Ditolak'],
@@ -217,7 +268,7 @@ function pilKe(status, menunggu) {
   var m = peta[status] || ['p-draft', status];
   return '<span class="pill ' + m[0] + '">' + esc(m[1]) + '</span>';
 }
-
+ 
 function rail(jejak) {
   return '<ol class="rail">' + jejak.map(function (x, i) {
     var tanda = x.status === 'done' ? '&#10003;' : x.status === 'no' ? '!' : (i + 1);
@@ -232,22 +283,22 @@ function rail(jejak) {
       '</div></li>';
   }).join('') + '</ol>';
 }
-
+ 
 function meter(pagu, terpakai, diproses) {
   var p = Number(pagu) || 1;
   return '<div class="meter"><i class="used" style="width:' +
     Math.min(100, Math.round(terpakai / p * 100)) + '%"></i><i class="cmt" style="width:' +
     Math.min(100, Math.round((diproses || 0) / p * 100)) + '%"></i></div>';
 }
-
+ 
 /* ── Navigasi ────────────────────────────────────────────── */
-
+ 
 var JUDUL = {
   home: ['Beranda', ''], rab: ['RAB saya', ''], rabdet: ['Detail RAB', ''],
   rabnew: ['Buat RAB', ''], inbox: ['Perlu persetujuan', ''], inboxdet: ['Tinjau dokumen', ''],
   profil: ['Profil', ''], selesai: ['', '']
 };
-
+ 
 function buka(layar, p, dorong) {
   if (dorong !== false && S.layar !== layar) S.stack.push({ l: S.layar, p: S.p });
   S.layar = layar; S.p = p || {};
@@ -261,19 +312,19 @@ function keTab(t) {
   S.tab = t; S.stack = []; S.form = {};
   buka(t, {}, false);
 }
-
+ 
 function bolehApprove() {
   var r = S.boot.pengguna.roles;
   return ['MANAGER_DIVISI', 'HC', 'FINANCE', 'FAT_MANAGER', 'CEO'].some(function (x) {
     return r.indexOf(x) > -1;
   });
 }
-
+ 
 function gambarTab() {
   var el = document.getElementById('tabs');
   var daftar = [['home', '&#8962;', 'Beranda'], ['rab', '&#9636;', 'RAB']];
   if (bolehApprove()) daftar.push(['inbox', '&#10003;', 'Setujui']);
-
+ 
   el.hidden = false;
   el.style.gridTemplateColumns = 'repeat(' + daftar.length + ',1fr)';
   el.innerHTML = daftar.map(function (d) {
@@ -283,7 +334,7 @@ function gambarTab() {
       lencana + '<span class="ic">' + d[1] + '</span>' + d[2] + '</button>';
   }).join('');
 }
-
+ 
 function gambar() {
   if (!S.masuk) return;
   var j = JUDUL[S.layar] || ['', ''];
@@ -301,14 +352,14 @@ function gambar() {
   }
   document.getElementById('back').hidden = !S.stack.length;
   window.scrollTo(0, 0);
-
+ 
   var view = document.getElementById('view');
   view.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
   gambarTab();
-
+ 
   var fn = LAYAR[S.layar];
   if (!fn) { view.innerHTML = '<div class="empty">Layar tidak dikenal.</div>'; return; }
-
+ 
   Promise.resolve(fn()).then(function (html) {
     view.innerHTML = html;
   }).catch(function (e) {
@@ -316,11 +367,11 @@ function gambar() {
       '<button class="btn ghost" onclick="gambar()">Coba lagi</button>';
   });
 }
-
+ 
 /* ── Layar ───────────────────────────────────────────────── */
-
+ 
 var LAYAR = {
-
+ 
   home: function () {
     return api('listRab', {}).then(function (daftar) {
       var aktif = daftar.filter(function (r) { return r.status === 'AKTIF'; });
@@ -328,7 +379,7 @@ var LAYAR = {
         return ['DRAFT', 'REVISI', 'SUBMITTED', 'APPROVED_LV1',
           'VERIFIED_FINANCE', 'APPROVED_FAT', 'PENDING_CEO'].indexOf(r.status) > -1;
       });
-
+ 
       var h = '';
       if (S.jmlInbox) {
         h += '<div class="card tap" onclick="keTab(\'inbox\')" ' +
@@ -338,24 +389,24 @@ var LAYAR = {
           '<div class="sm" style="margin-top:3px">Ketuk untuk meninjau</div></div>' +
           '<span style="font-size:20px;color:var(--amber)">&rsaquo;</span></div></div>';
       }
-
+ 
       h += '<div class="sec">Aksi cepat</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
         kartuAksi('&#65291;', 'Buat RAB', "mulaiRabBaru()") +
         kartuAksi('&#9636;', 'RAB saya', "keTab('rab')") +
         '</div>';
-
+ 
       h += '<div class="sec">Anggaran aktif</div>';
       h += aktif.length ? aktif.map(kartuRab).join('')
         : '<div class="card"><div class="sm">Belum ada RAB aktif. RAB yang sudah disetujui seluruh tahap akan muncul di sini.</div></div>';
-
+ 
       if (proses.length) {
         h += '<div class="sec">Sedang diproses</div>' + proses.map(kartuRab).join('');
       }
       return h;
     });
   },
-
+ 
   rab: function () {
     var f = S.p.f || 'semua';
     return api('listRab', {}).then(function (daftar) {
@@ -369,21 +420,21 @@ var LAYAR = {
         draft: function (r) { return ['DRAFT', 'REVISI'].indexOf(r.status) > -1; }
       };
       var list = daftar.filter(saring[f]);
-
+ 
       var h = '<div class="chips">' +
         [['semua', 'Semua'], ['aktif', 'Aktif'], ['proses', 'Diproses'], ['draft', 'Draft']]
           .map(function (c) {
             return '<button class="chip ' + (f === c[0] ? 'on' : '') +
               '" onclick="S.p={f:\'' + c[0] + '\'};gambar()">' + c[1] + '</button>';
           }).join('') + '</div>';
-
+ 
       h += list.length ? list.map(kartuRab).join('')
         : '<div class="empty"><div class="big">&#9636;</div>Tidak ada RAB di filter ini.</div>';
       h += '<button class="btn" onclick="mulaiRabBaru()" style="margin-top:6px">Buat RAB baru</button>';
       return h;
     });
   },
-
+ 
   rabdet: function () {
     return api('getRab', { rab_id: S.p.id }).then(function (d) {
       var r = d.header, k = d.rekap;
@@ -402,7 +453,7 @@ var LAYAR = {
           '<span class="amt">' + rp(k.realisasi) + ' (' +
           Math.round(k.realisasi / (k.pagu || 1) * 100) + '%)</span>') : '') +
         '</div>';
-
+ 
       h += '<div class="sec">Rincian item</div>';
       h += d.items.map(function (i) {
         return '<div class="card"><div class="rowb"><div style="min-width:0">' +
@@ -426,11 +477,11 @@ var LAYAR = {
             : '') +
           '</div>';
       }).join('');
-
+ 
       if (d.jejak && d.jejak.length) {
         h += '<div class="sec">Jejak persetujuan</div><div class="card">' + rail(d.jejak) + '</div>';
       }
-
+ 
       if (['DRAFT', 'REVISI'].indexOf(r.status) > -1) {
         h += '<button class="btn" onclick="kirimRab(\'' + r.rab_id + '\')">Kirim untuk persetujuan</button>' +
           '<div class="btnrow"><button class="btn ghost" onclick="ubahDraft(\'' + r.rab_id + '\')">Ubah item</button></div>';
@@ -443,44 +494,44 @@ var LAYAR = {
       return h;
     });
   },
-
+ 
   rabnew: function () {
     var f = S.form;
     var langkah = S.p.step || 1;
     var h = '<div class="steps"><i class="' + (langkah >= 1 ? 'on' : '') + '"></i>' +
       '<i class="' + (langkah >= 2 ? 'on' : '') + '"></i>' +
       '<i class="' + (langkah >= 3 ? 'on' : '') + '"></i></div>';
-
+ 
     if (langkah === 1) {
       h += '<div class="field"><label>Jenis RAB</label><select id="fTipe" onchange="S.form.tipe=this.value;gambar()">' +
         opsi([['BULANAN', 'Bulanan — ATK, P3K, Operasional'],
               ['IKLAN', 'Iklan — Meta, Google, TikTok, Snack Video, Marketplace, CRM']], f.tipe) +
         '</select></div>';
-
+ 
       h += '<div class="field"><label>Divisi</label><select id="fDivisi">' +
         S.boot.master.divisi.map(function (d) {
           return '<option value="' + d.divisi_id + '"' +
             (f.divisi_id === d.divisi_id ? ' selected' : '') + '>' + esc(d.nama) + '</option>';
         }).join('') + '</select></div>';
-
+ 
       h += '<div class="field"><label>Periode anggaran</label>' +
         '<input type="month" id="fPeriode" value="' + esc(f.periode || bulanDepan()) + '"></div>';
-
+ 
       h += '<div class="field"><label>Judul RAB</label>' +
         '<input id="fJudul" value="' + esc(f.judul || '') + '" placeholder="Contoh: Operasional & ATK September"></div>';
-
+ 
       h += '<div class="field"><label>Masa berlaku pengajuan ' +
         '<span class="hint">— di luar rentang ini item tidak bisa dipakai</span></label>' +
         '<div style="display:flex;gap:8px">' +
         '<input type="date" id="fDari" value="' + esc(f.valid_dari || '') + '">' +
         '<input type="date" id="fSampai" value="' + esc(f.valid_sampai || '') + '"></div></div>';
-
+ 
       h += '<div class="alert a-warn">Persetujuan ' +
         ((f.tipe || 'BULANAN') === 'BULANAN'
           ? 'HC &rarr; Finance &rarr; FAT Manager'
           : 'Manager Divisi &rarr; Finance &rarr; FAT Manager &rarr; CEO') + '.</div>';
       h += '<button class="btn" onclick="simpanLangkah1()">Lanjut isi item</button>';
-
+ 
     } else if (langkah === 2) {
       var items = f.items || [];
       h += '<div class="sec">Item anggaran</div>';
@@ -493,7 +544,7 @@ var LAYAR = {
         '<span class="amt" style="font-size:16px">' + rp(totalDraft()) + '</span></div></div>';
       h += '<button class="btn" onclick="buka(\'rabnew\',{step:3})"' +
         (items.length ? '' : ' disabled') + '>Lanjut ke ringkasan</button>';
-
+ 
     } else {
       h += '<div class="card">' +
         '<div class="ttl" style="font-size:16px">' + esc(f.judul) + '</div>' +
@@ -513,7 +564,7 @@ var LAYAR = {
     }
     return h;
   },
-
+ 
   inbox: function () {
     return api('listInbox').then(function (daftar) {
       S.jmlInbox = daftar.length;
@@ -539,7 +590,7 @@ var LAYAR = {
       }).join('');
     });
   },
-
+ 
   inboxdet: function () {
     return api('getRab', { rab_id: S.p.id }).then(function (d) {
       var r = d.header, k = d.rekap;
@@ -555,7 +606,7 @@ var LAYAR = {
         kv('Total pagu', '<span class="amt">' + rp(k.pagu) + '</span>') +
         kv('Jumlah item', k.jumlah_item + ' item') +
         '</div>';
-
+ 
       h += '<div class="sec">Rincian item</div><div class="card">' +
         d.items.map(function (i, n) {
           return (n ? '<div class="hr"></div>' : '') +
@@ -565,13 +616,13 @@ var LAYAR = {
             ' &middot; ' + i.qty + ' ' + esc(i.satuan) + ' &times; ' + rp(i.harga_satuan) + '</div>' +
             '</div><span class="amt" style="font-size:12.5px">' + rp(i.pagu_efektif) + '</span></div>';
         }).join('') + '</div>';
-
+ 
       h += '<div class="sec">Jejak persetujuan</div><div class="card">' + rail(d.jejak) + '</div>';
-
+ 
       h += '<div class="field"><label>Catatan ' +
         '<span class="hint">— wajib jika menolak atau meminta revisi</span></label>' +
         '<textarea id="fCatatan" rows="3" placeholder="Tulis catatan untuk pemohon"></textarea></div>';
-
+ 
       h += '<button class="btn ok" onclick="putuskan(\'APPROVE\')">Setujui</button>' +
         '<div class="btnrow">' +
         '<button class="btn ghost" onclick="putuskan(\'REVISI\')">Minta revisi</button>' +
@@ -579,9 +630,9 @@ var LAYAR = {
       return h;
     });
   },
-
+ 
   profil: function () { return isiProfil(); },
-
+ 
   selesai: function () {
     return '<div class="empty" style="padding-top:56px">' +
       '<div style="width:56px;height:56px;border-radius:50%;background:var(--green-50);' +
@@ -592,9 +643,9 @@ var LAYAR = {
       '<button class="btn" onclick="keTab(\'home\')">Kembali ke beranda</button>';
   }
 };
-
+ 
 /* ── Potongan tampilan ───────────────────────────────────── */
-
+ 
 function kv(label, isi) {
   return '<div class="kv"><span>' + label + '</span><span>' + isi + '</span></div>';
 }
@@ -654,9 +705,9 @@ function totalDraft() {
     return a + (Number(i.qty) || 0) * (Number(i.harga_satuan) || 0);
   }, 0);
 }
-
+ 
 /* ── Tindakan ────────────────────────────────────────────── */
-
+ 
 function mulaiRabBaru() {
   var awal = new Date(); awal.setMonth(awal.getMonth() + 1); awal.setDate(1);
   var akhir = new Date(awal.getFullYear(), awal.getMonth() + 1, 0);
@@ -668,7 +719,7 @@ function mulaiRabBaru() {
   S.stack = [];
   buka('rabnew', { step: 1 }, false);
 }
-
+ 
 function simpanLangkah1() {
   var f = S.form;
   f.tipe = document.getElementById('fTipe').value;
@@ -677,19 +728,19 @@ function simpanLangkah1() {
   f.judul = document.getElementById('fJudul').value.trim();
   f.valid_dari = document.getElementById('fDari').value;
   f.valid_sampai = document.getElementById('fSampai').value;
-
+ 
   if (!f.judul) return toast('Judul RAB wajib diisi.', 'bad');
   if (!f.periode) return toast('Periode anggaran wajib dipilih.', 'bad');
   if (!f.valid_dari || !f.valid_sampai) return toast('Masa berlaku wajib diisi.', 'bad');
   if (f.valid_dari > f.valid_sampai) return toast('Tanggal akhir harus setelah tanggal mulai.', 'bad');
-
+ 
   buka('rabnew', { step: 2 });
 }
-
+ 
 function tambahItem() {
   var kat = S.boot.master.kategori.filter(function (k) { return k.tipe_rab === S.form.tipe; });
   if (!kat.length) return toast('Belum ada kategori untuk jenis RAB ini.', 'bad');
-
+ 
   var view = document.getElementById('view');
   var box = document.createElement('div');
   box.className = 'card';
@@ -710,7 +761,7 @@ function tambahItem() {
   view.appendChild(box);
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
-
+ 
 function simpanItem() {
   var desk = document.getElementById('iDesk').value.trim();
   var harga = Number(document.getElementById('iHarga').value) || 0;
@@ -718,7 +769,7 @@ function simpanItem() {
   if (!desk) return toast('Deskripsi item wajib diisi.', 'bad');
   if (qty <= 0) return toast('Jumlah harus lebih dari nol.', 'bad');
   if (harga <= 0) return toast('Harga satuan harus lebih dari nol.', 'bad');
-
+ 
   S.form.items = S.form.items || [];
   S.form.items.push({
     kategori_id: document.getElementById('iKat').value,
@@ -732,9 +783,9 @@ function simpanItem() {
   });
   gambar();
 }
-
+ 
 function hapusItem(i) { S.form.items.splice(i, 1); gambar(); }
-
+ 
 function payloadRab() {
   var f = S.form;
   return {
@@ -742,7 +793,7 @@ function payloadRab() {
     judul: f.judul, valid_dari: f.valid_dari, valid_sampai: f.valid_sampai, items: f.items
   };
 }
-
+ 
 function simpanSaja() {
   if (S.sibuk) return;
   S.sibuk = true;
@@ -754,7 +805,7 @@ function simpanSaja() {
     });
   }).catch(function (e) { S.sibuk = false; toast(pesanError(e), 'bad'); });
 }
-
+ 
 function simpanDanKirim() {
   if (S.sibuk) return;
   S.sibuk = true;
@@ -768,7 +819,7 @@ function simpanDanKirim() {
     });
   }).catch(function (e) { S.sibuk = false; toast(pesanError(e), 'bad'); });
 }
-
+ 
 function kirimRab(id) {
   if (S.sibuk) return;
   S.sibuk = true;
@@ -780,7 +831,7 @@ function kirimRab(id) {
     });
   }).catch(function (e) { S.sibuk = false; toast(pesanError(e), 'bad'); });
 }
-
+ 
 function ubahDraft(id) {
   api('getRab', { rab_id: id }).then(function (d) {
     S.form = {
@@ -799,7 +850,7 @@ function ubahDraft(id) {
     buka('rabnew', { step: 2 });
   }).catch(function (e) { toast(pesanError(e), 'bad'); });
 }
-
+ 
 function duplikat(id) {
   if (S.sibuk) return;
   S.sibuk = true;
@@ -809,7 +860,7 @@ function duplikat(id) {
     keTab('rab');
   }).catch(function (e) { S.sibuk = false; toast(pesanError(e), 'bad'); });
 }
-
+ 
 function putuskan(aksi) {
   if (S.sibuk) return;
   var catatan = (document.getElementById('fCatatan') || {}).value || '';
@@ -831,26 +882,27 @@ function putuskan(aksi) {
     buka('selesai', { msg: pesan[0], sub: pesan[1] }, false);
   }).catch(function (e) { S.sibuk = false; toast(pesanError(e), 'bad'); });
 }
-
+ 
 /* ── Akun ────────────────────────────────────────────────── */
-
-
+ 
+ 
 /** Membuka URL aplikasi pada indeks akun tertentu, tanpa menyentuh sesi lain. */
-
-
+ 
+ 
 /* ── Masuk dan keluar ────────────────────────────────────── */
-
+ 
 /**
  * Dipanggil Google Identity Services setelah pengguna memilih akun.
  * Token belum dipercaya di sini — server yang memverifikasinya.
  */
 function terimaKredensial(resp) {
-  S.token = resp && resp.credential;
-  if (!S.token) return layarMasuk('Google tidak mengirim token. Coba lagi.');
+  var token = resp && resp.credential;
+  if (!token) return layarMasuk('Google tidak mengirim token. Coba lagi.');
+  simpanToken_(token);
   S.masuk = true;
   muatAplikasi();
 }
-
+ 
 function siapkanGoogle() {
   if (!window.google || !google.accounts || !google.accounts.id) {
     return setTimeout(siapkanGoogle, 200);
@@ -870,7 +922,7 @@ function siapkanGoogle() {
   }
   google.accounts.id.prompt();
 }
-
+ 
 /**
  * Keluar sungguhan: token dibuang, pemilihan otomatis dimatikan,
  * seluruh data dihapus dari memori. Membuka halaman lagi akan
@@ -882,16 +934,17 @@ function keluar(otomatis) {
       google.accounts.id.disableAutoSelect();
     }
   } catch (e) { }
-
-  S.token = null; S.masuk = false; S.boot = null; S.jmlInbox = 0;
+ 
+  hapusToken_();
+  S.masuk = false; S.boot = null; S.jmlInbox = 0;
   S.stack = []; S.form = {}; S.p = {}; S.layar = 'home'; S.tab = 'home';
   if (IDLE.timer) { clearInterval(IDLE.timer); IDLE.timer = null; }
-
+ 
   layarMasuk(otomatis
     ? 'Sesi berakhir. Masuk lagi untuk melanjutkan.'
     : null);
 }
-
+ 
 function layarMasuk(pesan) {
   document.getElementById('topbar').hidden = true;
   document.getElementById('tabs').hidden = true;
@@ -906,14 +959,14 @@ function layarMasuk(pesan) {
     'administrator. Akun lain akan ditolak.</div></div>';
   siapkanGoogle();
 }
-
+ 
 /* ── Pemuatan ────────────────────────────────────────────── */
-
+ 
 function muatAplikasi() {
   document.getElementById('topbar').hidden = false;
   document.getElementById('view').innerHTML =
     '<div class="loading"><div class="spin"></div><p>Memuat data…</p></div>';
-
+ 
   api('bootstrap').then(function (b) {
     S.boot = b;
     return bolehApprove() ? api('listInbox').catch(function () { return []; }) : [];
@@ -930,7 +983,7 @@ function muatAplikasi() {
       '<button class="btn ghost" onclick="keluar(false)">Ganti akun</button></div>';
   });
 }
-
+ 
 /**
  * Akun Google mana pun bisa memperoleh token yang sah, jadi layar ini
  * akan sering muncul. Nadanya sengaja tenang: ini bukan kesalahan sistem,
@@ -951,11 +1004,11 @@ function layarBelumTerdaftar(e) {
     '<button class="btn ghost" style="max-width:300px;margin-top:14px" ' +
     'onclick="keluar(false)">Masuk dengan akun lain</button></div>';
 }
-
+ 
 /* ── Keluar otomatis saat menganggur ─────────────────────── */
-
+ 
 function catatAktivitas() { IDLE.terakhir = Date.now(); }
-
+ 
 function pantauMenganggur() {
   ['click', 'keydown', 'touchstart', 'scroll'].forEach(function (ev) {
     document.addEventListener(ev, catatAktivitas, { passive: true });
@@ -967,9 +1020,9 @@ function pantauMenganggur() {
     if (Date.now() - IDLE.terakhir > KONFIG.MENIT_MENGANGGUR * 60000) keluar(true);
   }, 30000);
 }
-
+ 
 /* ── Bagian profil ───────────────────────────────────────── */
-
+ 
 function isiProfil() {
   var u = S.boot.pengguna;
   return '<div class="card">' +
@@ -991,18 +1044,37 @@ function isiProfil() {
     '<div class="sec">Keluar</div>' +
     '<div class="card"><div class="sm">Keluar menghapus sesi Anda dari perangkat ini. ' +
     'Untuk masuk lagi Anda perlu memilih akun Google kembali.</div>' +
-    '<div class="xs" style="margin-top:8px">Sesi juga berakhir sendiri setelah ' +
-    KONFIG.MENIT_MENGANGGUR + ' menit tanpa aktivitas.</div></div>' +
+    '<div class="xs" style="margin-top:8px">Sesi berakhir sendiri setelah ' +
+    KONFIG.MENIT_MENGANGGUR + ' menit tanpa aktivitas, saat tab ditutup, atau ' +
+    'ketika token Google habis masa berlakunya' + sisaSesi_() + '.</div></div>' +
     '<button class="btn ghost" onclick="keluar(false)">Keluar dari aplikasi</button>';
 }
-
+ 
+/** Sisa masa berlaku token, untuk ditampilkan di layar profil. */
+function sisaSesi_() {
+  if (!S.token) return '';
+  var sisa = kedaluwarsaToken_(S.token) - Date.now();
+  if (sisa <= 0) return '';
+  var menit = Math.round(sisa / 60000);
+  return ' — sekitar ' + menit + ' menit lagi';
+}
+ 
 /* ── Mulai ───────────────────────────────────────────────── */
-
+ 
 if (KONFIG.CLIENT_ID.indexOf('GANTI') === 0 || KONFIG.API_URL.indexOf('GANTI') === 0) {
   document.getElementById('view').innerHTML =
     '<div class="alert a-bad" style="margin:20px">Aplikasi belum dikonfigurasi. ' +
     'Isi <span class="mono">API_URL</span> dan <span class="mono">CLIENT_ID</span> ' +
     'di bagian atas <span class="mono">app.js</span>.</div>';
 } else {
-  layarMasuk(null);
+  // Token yang masih berlaku membuat pemuatan ulang halaman tidak
+  // memaksa login lagi. Server tetap memverifikasinya dari awal.
+  var tokenLama = tokenTersimpan_();
+  if (tokenLama) {
+    S.token = tokenLama;
+    S.masuk = true;
+    muatAplikasi();
+  } else {
+    layarMasuk(null);
+  }
 }
