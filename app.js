@@ -19,7 +19,7 @@ var KONFIG = {
    * setiap kali app.js diubah. Nilainya tampil di layar Profil, sehingga
    * bisa dipastikan browser memuat versi terbaru dan bukan salinan cache.
    */
-  BUILD: '2026-08-17.5'
+  BUILD: '2026-08-17.6'
 };
 
 var S = { boot: null, tab: 'home', layar: 'home', p: {}, stack: [], form: {},
@@ -146,6 +146,11 @@ var PESAN = {
   LOCK_TIMEOUT: 'Sistem sedang sibuk. Coba lagi beberapa detik.',
   BALASAN_KOSONG: 'Server tidak mengembalikan data.',
   AKSES_BERKAS_DITOLAK: 'Anda belum diberi akses ke salah satu berkas data.',
+  JENIS_BERKAS_TIDAK_DIIZINKAN: 'Jenis berkas ini tidak diterima. ' +
+    'Gunakan PDF, foto, atau dokumen Word dan Excel.',
+  LAMPIRAN_TERLALU_BESAR: 'Berkas terlalu besar. Perkecil dulu atau bagi menjadi beberapa berkas.',
+  BERKAS_RUSAK: 'Berkas gagal dibaca. Coba unggah ulang.',
+  BERKAS_KOSONG: 'Tidak ada berkas yang terkirim.',
   SHEET_TIDAK_ADA: 'Struktur data tidak lengkap. Hubungi administrator.',
   GAGAL_TERHUBUNG: 'Gagal terhubung ke server. Periksa koneksi Anda.',
   KESALAHAN_SISTEM: 'Terjadi kesalahan sistem. Sudah dicatat untuk diperiksa.'
@@ -887,9 +892,13 @@ var LAYAR = {
 
     var cfg = (m.tipe_pembayaran.filter(function (t) { return t.nama === bayar; })[0]) || {};
     if (cfg.butuh_rekening === 'YA') {
-      h += '<div class="field"><label>Detail bank penerima</label>' +
-        '<input id="fBank" style="text-transform:uppercase" value="' + esc(f.bank_penerima || '') +
-        '" placeholder="BCA / BRI / MANDIRI"></div>' +
+      h += '<div class="field"><label>Bank penerima</label>' +
+        '<select id="fBank" onchange="gantiBank(this.value)">' + opsiBank(f.bank_penerima) +
+        '</select></div>' +
+        (f.bank_lain ? '<div class="field"><label>Nama bank ' +
+          '<span class="hint">— tidak ada di daftar</span></label>' +
+          '<input id="fBankLain" style="text-transform:uppercase" value="' +
+          esc(f.bank_penerima_lain || '') + '" placeholder="Tulis nama banknya"></div>' : '') +
         '<div class="field"><label>Nomor rekening</label>' +
         '<input class="mono" id="fRek" inputmode="numeric" value="' + esc(f.no_rekening || '') +
         '" placeholder="1234-5678-9000" oninput="formatRekening(this)"></div>';
@@ -915,17 +924,12 @@ var LAYAR = {
     }
 
     h += '<div class="sec">Lampiran pendukung</div>';
-    h += '<div class="field"><label>Lampiran finance <span class="hint">— wajib</span></label>' +
-      '<input id="fLampFin" value="' + esc(f.lampiran_finance || '') +
-      '" placeholder="Tempel tautan Drive berkasnya"></div>' +
-      '<div class="xs" style="margin:-8px 0 13px">' +
-      (jenis === 'KASBON'
+    h += kotakUnggah('finance', 'Lampiran finance', 'wajib',
+      jenis === 'KASBON'
         ? 'Untuk kasbon, lampirkan tangkapan layar atau dokumen yang menjelaskan rencana penggunaan dana.'
-        : 'Invoice, nota, atau surat penawaran. Unggah ke Drive, bagikan, lalu tempel tautannya.') +
-      '</div>';
-    h += '<div class="field"><label>Lampiran tax <span class="hint">— opsional</span></label>' +
-      '<input id="fLampTax" value="' + esc(f.lampiran_tax || '') +
-      '" placeholder="Faktur pajak, KTP, atau SPK bila ada"></div>';
+        : 'Invoice, nota, atau surat penawaran. Boleh PDF, foto, atau dokumen.');
+    h += kotakUnggah('tax', 'Lampiran tax', 'opsional',
+      'Faktur pajak, KTP, atau SPK bila ada.');
 
     h += '<div class="alert a-warn">Jenis pajak, sumber dana, dan bank pengirim ' +
       'ditentukan tim FAT saat verifikasi, bukan di sini.</div>';
@@ -1414,6 +1418,124 @@ function cekNominal() {
   }
 }
 
+
+/* ── Pilihan bank ────────────────────────────────────────── */
+
+function opsiBank(terpilih) {
+  var daftar = (S.boot && S.boot.master.bank) || [];
+  var bank = daftar.filter(function (b) { return b.jenis === 'BANK'; });
+  var ewallet = daftar.filter(function (b) { return b.jenis === 'EWALLET'; });
+
+  var opt = function (b) {
+    return '<option value="' + esc(b.nama) + '"' +
+      (terpilih === b.nama ? ' selected' : '') + '>' + esc(b.nama) + '</option>';
+  };
+
+  return '<option value="">— pilih bank —</option>' +
+    (bank.length ? '<optgroup label="Bank">' + bank.map(opt).join('') + '</optgroup>' : '') +
+    (ewallet.length ? '<optgroup label="Dompet digital">' + ewallet.map(opt).join('') + '</optgroup>' : '') +
+    '<option value="__LAIN__"' + (S.form.bank_lain ? ' selected' : '') + '>Lainnya…</option>';
+}
+
+/** Memilih "Lainnya" memunculkan kolom teks untuk bank yang belum terdaftar. */
+function gantiBank(nilai) {
+  simpanForm();
+  if (nilai === '__LAIN__') {
+    S.form.bank_lain = true;
+    S.form.bank_penerima = '';
+  } else {
+    S.form.bank_lain = false;
+    S.form.bank_penerima = nilai;
+  }
+  gambar();
+}
+
+/* ── Unggah lampiran ─────────────────────────────────────── */
+
+/**
+ * Kotak unggah untuk satu slot lampiran.
+ * Menampilkan tombol pilih berkas, atau keterangan berkas yang sudah terunggah.
+ */
+function kotakUnggah(slot, judul, sifat, bantuan) {
+  var url = S.form['lampiran_' + slot];
+  var nama = S.form['nama_' + slot];
+
+  var isi;
+  if (url) {
+    isi = '<div class="card" style="margin:0;border-color:var(--green)">' +
+      '<div class="rowb"><div style="min-width:0">' +
+      '<div style="font-weight:600;font-size:12.5px">&#10003; ' + esc(nama || 'Berkas terunggah') + '</div>' +
+      '<a href="' + esc(url) + '" target="_blank" class="xs" ' +
+      'style="color:var(--brand)">Buka berkas</a></div>' +
+      '<button class="btn ghost" style="width:auto;padding:7px 12px;font-size:12px" ' +
+      'onclick="hapusLampiran(\'' + slot + '\')">Ganti</button></div></div>';
+  } else {
+    isi = '<div class="upload" onclick="document.getElementById(\'file_' + slot + '\').click()" ' +
+      'id="drop_' + slot + '">Ketuk untuk pilih berkas<br>' +
+      '<span class="xs">PDF, foto, atau dokumen &middot; maks ' +
+      ((S.boot && S.boot.param.maks_lampiran_mb) || 25) + ' MB</span></div>' +
+      '<input type="file" id="file_' + slot + '" style="display:none" ' +
+      'accept=".pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,.xls,.xlsx" ' +
+      'onchange="unggahBerkas(this,\'' + slot + '\')">';
+  }
+
+  return '<div class="field"><label>' + judul +
+    ' <span class="hint">— ' + sifat + '</span></label>' + isi +
+    '<div class="xs" style="margin-top:6px">' + bantuan + '</div></div>';
+}
+
+/**
+ * Membaca berkas menjadi base64 lalu mengirimkannya ke server.
+ *
+ * Isi berkas dikirim di dalam badan permintaan, bukan sebagai unggahan
+ * multipart, karena Apps Script tidak bisa menjawab permintaan preflight
+ * yang dipicu oleh header multipart.
+ */
+function unggahBerkas(input, slot) {
+  var berkas = input.files && input.files[0];
+  if (!berkas) return;
+
+  var maksMb = (S.boot && S.boot.param.maks_lampiran_mb) || 25;
+  if (berkas.size > maksMb * 1024 * 1024) {
+    input.value = '';
+    return toast('Berkas ' + (berkas.size / 1048576).toFixed(1) +
+      ' MB, melebihi batas ' + maksMb + ' MB.', 'bad');
+  }
+
+  simpanForm();
+  var kotak = document.getElementById('drop_' + slot);
+  if (kotak) kotak.innerHTML = 'Mengunggah ' + esc(berkas.name) + '…';
+
+  var pembaca = new FileReader();
+  pembaca.onerror = function () {
+    if (kotak) kotak.innerHTML = 'Gagal membaca berkas. Coba lagi.';
+  };
+  pembaca.onload = function () {
+    var base64 = String(pembaca.result).split(',')[1];
+    api('unggahLampiran', {
+      nama: berkas.name,
+      mime: berkas.type || 'application/octet-stream',
+      base64: base64
+    }).then(function (r) {
+      S.form['lampiran_' + slot] = r.url;
+      S.form['nama_' + slot] = r.nama + ' (' + r.ukuran_teks + ')';
+      gambar();
+      toast('Berkas terunggah.', 'good');
+    }).catch(function (e) {
+      if (kotak) kotak.innerHTML = 'Ketuk untuk pilih berkas';
+      toast(pesanError(e), 'bad');
+    });
+  };
+  pembaca.readAsDataURL(berkas);
+}
+
+function hapusLampiran(slot) {
+  simpanForm();
+  S.form['lampiran_' + slot] = '';
+  S.form['nama_' + slot] = '';
+  gambar();
+}
+
 /* ── Alur pengajuan ──────────────────────────────────────── */
 
 /**
@@ -1454,15 +1576,20 @@ function simpanForm() {
     penerima_nama: 'fPenerima', penerima_email: 'fEmail',
     bank_penerima: 'fBank', no_rekening: 'fRek', no_hp: 'fHp',
     no_cek_bg: 'fWarkat', tgl_jatuh_tempo_bg: 'fJatuhTempo',
-    va_biller: 'fBiller', va_nomor: 'fVa',
-    lampiran_finance: 'fLampFin', lampiran_tax: 'fLampTax'
+    va_biller: 'fBiller', va_nomor: 'fVa'
   };
+  // Lampiran tidak dibaca dari kolom teks: nilainya ditetapkan
+  // saat unggahan berhasil, dan kolomnya tidak ada di layar.
   Object.keys(peta).forEach(function (k) {
     var v = ambil(peta[k]);
     if (v !== undefined) f[k] = v;
   });
   var n = bacaUang('fNominal');
   if (n) f.nominal_diajukan = n;
+
+  var lain = document.getElementById('fBankLain');
+  if (lain) f.bank_penerima_lain = lain.value;
+  if (f.bank_lain) f.bank_penerima = (f.bank_penerima_lain || '').toUpperCase();
 }
 
 function lanjutRingkasan() {
