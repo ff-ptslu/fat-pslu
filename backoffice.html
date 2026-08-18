@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAT Backoffice — PT Sahada Laku Utama</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="backoffice.css">
+</head>
+<body class="bo-body">
+
+<div class="bo-shell" id="shell" hidden>
+  <header class="bo-top">
+    <div class="bo-merek"><img src="logo.png" alt="Sahada"></div>
+    <div class="bo-judul">FAT <span>Backoffice</span></div>
+    <nav class="bo-nav" id="nav"></nav>
+    <div class="bo-akun">
+      <a href="index.html" class="bo-btn ghost dark" style="text-decoration:none">Aplikasi utama</a>
+      <span id="namaAkun"></span>
+      <button class="bo-btn ghost dark" onclick="keluar(false)">Keluar</button>
+    </div>
+  </header>
+  <main class="bo-main" id="main">
+    <div class="bo-loading"><div class="spin"></div><p>Memuat…</p></div>
+  </main>
+</div>
+
+<div class="bo-masuk" id="masukWadah">
+  <div class="bo-loading"><div class="spin"></div><p>Menyiapkan…</p></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="api.js"></script>
+<script src="backoffice.js"></script>
+</body>
+</html>
