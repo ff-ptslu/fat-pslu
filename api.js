@@ -16,7 +16,7 @@ var KONFIG = {
    * setiap kali app.js diubah. Nilainya tampil di layar Profil, sehingga
    * bisa dipastikan browser memuat versi terbaru dan bukan salinan cache.
    */
-  BUILD: '2026-08-17.7'
+  BUILD: '2026-08-17.8'
 };
 
 var S = { boot: null, tab: 'home', layar: 'home', p: {}, stack: [], form: {},
@@ -262,4 +262,3 @@ function toast(teks, jenis) {
   document.getElementById('toast').appendChild(t);
   setTimeout(function () { t.remove(); }, 3200);
 }
-
